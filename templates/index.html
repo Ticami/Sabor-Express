@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-12">
+    <div class="d-flex align-items-center justify-content-between">
+      <h3 class="fw-semibold">Sabor Express • Gerar Rota</h3>
+      <div class="text-end small text-secondary">v1</div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="card p-3">
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <h5 class="m-0"><i class="bi bi-geo-alt"></i> Pontos de Entrega</h5>
+        <div class="d-flex gap-2">
+          <button class="btn btn-success" id="btn-add"><i class="bi bi-plus-circle"></i> Adicionar</button>
+          <button class="btn btn-outline-secondary" type="button" id="btn-download"><i class="bi bi-file-earmark-arrow-down"></i> Baixar CSV atual</button>
+          <button class="btn btn-outline-light" type="button" id="btn-save-csv"><i class="bi bi-save"></i> Salvar cadastros</button>
+        </div>
+      </div>
+      <div class="table-responsive" style="max-height: 420px;">
+        <table class="table table-sm align-middle" id="points-table">
+          <thead>
+            <tr>
+              <th>id</th>
+              <th>nome</th>
+              <th>endereco</th>
+              <th>latitude</th>
+              <th>longitude</th>
+              <th>selecionado</th>
+              <th style="width:160px;">ação</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="card p-3">
+      <h5 class="mb-3"><i class="bi bi-shop"></i> Sabor Express</h5>
+      <form id="opt-form" method="post" action="/optimize">
+        <div class="mb-2">
+          <label class="form-label">Nome</label>
+          <input class="form-control" name="restaurant_name" id="restaurant_name" value="{{ default_name }}" />
+        </div>
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="form-label">Latitude</label>
+            <input class="form-control" name="restaurant_lat" id="restaurant_lat" value="{{ default_lat }}" />
+          </div>
+          <div class="col-6">
+            <label class="form-label">Longitude</label>
+            <input class="form-control" name="restaurant_lon" id="restaurant_lon" value="{{ default_lon }}" />
+          </div>
+        </div>
+        <div class="mt-2">
+          <label class="form-label">Endereço (opcional)</label>
+          <input class="form-control" name="restaurant_addr" id="restaurant_addr" placeholder="Rua, número, bairro..." />
+        </div>
+        <div class="mt-2">
+          <label class="form-label">Velocidade (km/h)</label>
+          <input class="form-control" type="number" min="5" max="150" step="1" name="speed" id="speed" value="{{ default_speed }}" />
+        </div>
+        <div class="form-check mt-2">
+          <input class="form-check-input" type="checkbox" name="roads" id="roads" checked>
+          <label class="form-check-label" for="roads">Traçar rota pelas ruas (OSRM)</label>
+        </div>
+        <input type="hidden" name="csv_text" id="csv_text" />
+        <div class="mt-3 d-grid gap-2">
+          <button class="btn btn-primary" type="submit" id="btn-run"><i class="bi bi-rocket-takeoff"></i> Calcular melhor rota</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-pencil-square"></i> Editar Ponto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-2">
+          <div class="col-2">
+            <label class="form-label">id</label>
+            <input class="form-control" id="f_id" />
+          </div>
+          <div class="col-4">
+            <label class="form-label">nome</label>
+            <input class="form-control" id="f_nome" />
+          </div>
+          <div class="col-6">
+            <label class="form-label">endereco</label>
+            <input class="form-control" id="f_endereco" />
+          </div>
+          <div class="col-6">
+            <label class="form-label">latitude</label>
+            <input class="form-control" id="f_latitude" />
+          </div>
+          <div class="col-6">
+            <label class="form-label">longitude</label>
+            <input class="form-control" id="f_longitude" />
+          </div>
+          <div class="col-12">
+            <div class="form-check mt-2">
+              <input class="form-check-input" type="checkbox" id="f_selecionado" />
+              <label class="form-check-label" for="f_selecionado">Selecionado</label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-danger me-auto" id="btn-delete"><i class="bi bi-trash"></i> Excluir</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-save">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const CANON_COLS = ["id","nome","endereco","latitude","longitude","selecionado"];
+  let rows = {{ rows | tojson }};
+  let editingIndex = -1;
+
+  function renderTable() {
+    const tbody = document.getElementById('tbody');
+    tbody.innerHTML = '';
+    rows.forEach((r, idx) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${r.id ?? ''}</td>
+        <td>${escapeHtml(r.nome ?? '')}</td>
+        <td>${escapeHtml(r.endereco ?? '')}</td>
+        <td>${r.latitude ?? ''}</td>
+        <td>${r.longitude ?? ''}</td>
+        <td>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" ${r.selecionado ? 'checked' : ''} data-idx="${idx}" onchange="toggleSelected(this)">
+          </div>
+        </td>
+        <td>
+          <button class="btn btn-sm btn-outline-secondary me-1" onclick="openEdit(${idx})"><i class="bi bi-pencil"></i> Editar</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteRow(${idx})"><i class="bi bi-trash"></i></button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function escapeHtml(str) { return String(str).replace(/[&<>\"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[s])); }
+
+  function openEdit(idx) {
+    editingIndex = idx;
+    const r = rows[idx];
+    document.getElementById('f_id').value = r.id ?? '';
+    document.getElementById('f_nome').value = r.nome ?? '';
+    document.getElementById('f_endereco').value = r.endereco ?? '';
+    document.getElementById('f_latitude').value = r.latitude ?? '';
+    document.getElementById('f_longitude').value = r.longitude ?? '';
+    document.getElementById('f_selecionado').checked = !!r.selecionado;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('editModal')).show();
+  }
+
+  function openAdd() {
+    editingIndex = -1;
+    document.getElementById('f_id').value = '';
+    document.getElementById('f_nome').value = '';
+    document.getElementById('f_endereco').value = '';
+    document.getElementById('f_latitude').value = '';
+    document.getElementById('f_longitude').value = '';
+    document.getElementById('f_selecionado').checked = true;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('editModal')).show();
+  }
+
+  function saveEdit() {
+    const r = {
+      id: intOrNull(document.getElementById('f_id').value),
+      nome: document.getElementById('f_nome').value.trim(),
+      endereco: document.getElementById('f_endereco').value.trim(),
+      latitude: floatOrNull(document.getElementById('f_latitude').value),
+      longitude: floatOrNull(document.getElementById('f_longitude').value),
+      selecionado: document.getElementById('f_selecionado').checked,
+    };
+    if (editingIndex === -1) rows.push(r); else rows[editingIndex] = r;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('editModal')).hide();
+    renderTable();
+  }
+
+  function deleteRow(idx) {
+    rows.splice(idx, 1);
+    renderTable();
+  }
+
+  function toggleSelected(el) {
+    const idx = parseInt(el.getAttribute('data-idx'));
+    rows[idx].selecionado = el.checked;
+  }
+
+  function intOrNull(v){ const n = parseInt(v, 10); return isNaN(n) ? null : n; }
+  function floatOrNull(v){ const n = parseFloat(v); return isNaN(n) ? null : n; }
+
+  function rowsToCsv() {
+    const headers = CANON_COLS;
+    const lines = [headers.join(',')];
+    rows.forEach(r => {
+      const vals = headers.map(h => {
+        let v = r[h];
+        if (v === null || v === undefined) v = '';
+        if (typeof v === 'string' && (v.includes(',') || v.includes('\"'))) {
+          v = '\"' + v.replaceAll('\"','\"\"') + '\"';
+        }
+        return v;
+      });
+      lines.push(vals.join(','));
+    });
+    return lines.join('\n');
+  }
+
+  document.getElementById('btn-add').addEventListener('click', openAdd);
+  document.getElementById('btn-save').addEventListener('click', saveEdit);
+  document.getElementById('btn-delete').addEventListener('click', () => {
+    if (editingIndex >= 0) { deleteRow(editingIndex); }
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('editModal')).hide();
+  });
+
+  document.getElementById('opt-form').addEventListener('submit', () => {
+    document.getElementById('csv_text').value = rowsToCsv();
+  });
+
+  document.getElementById('btn-download').addEventListener('click', () => {
+    const csv = rowsToCsv();
+    const blob = new Blob([csv], {type:'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'enderecos.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  document.getElementById('btn-save-csv').addEventListener('click', async () => {
+    const csv = rowsToCsv();
+    const body = new URLSearchParams();
+    body.set('csv_text', csv);
+    const res = await fetch('/save_points', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
+    if (res.ok) alert('Endereços salvos em data/enderecos.csv'); else alert('Falha ao salvar CSV');
+  });
+
+  renderTable();
+</script>
+{% endblock %}

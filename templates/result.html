@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-12 col-xl-4">
+    <div class="card p-3">
+      <h5 class="mb-3"><i class="bi bi-speedometer2"></i> Resumo</h5>
+      <ul class="list-group mb-3">
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          Distância total (km)
+          <span class="badge bg-primary rounded-pill">{{ total_km }}</span>
+        </li>
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          Tempo total (min)
+          <span class="badge bg-primary rounded-pill">{{ total_min }}</span>
+        </li>
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          Paradas
+          <span class="badge bg-primary rounded-pill">{{ n_stops }}</span>
+        </li>
+      </ul>
+      <form method="post" action="/download">
+        <input type="hidden" name="csv_b64" value="{{ csv_b64 }}" />
+        <button class="btn btn-success w-100" type="submit"><i class="bi bi-download"></i> Baixar CSV da rota</button>
+      </form>
+      <a class="btn btn-outline-secondary w-100 mt-2" href="/"><i class="bi bi-arrow-left"></i> Voltar</a>
+    </div>
+  </div>
+  <div class="col-12 col-xl-8">
+    <div class="card p-3">
+      <h5><i class="bi bi-list-ol"></i> Ordem da Rota</h5>
+      <div class="table-responsive" style="max-height: 320px;">
+        <table class="table table-striped table-sm align-middle">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>De</th>
+              <th>Para</th>
+              <th>Lat</th>
+              <th>Lon</th>
+              <th>Dist (km)</th>
+              <th>Tempo (min)</th>
+              <th>Acum (km)</th>
+              <th>Acum (min)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in table %}
+            <tr>
+              <td>{{ r.ordem }}</td>
+              <td>{{ r.de }}</td>
+              <td>{{ r.para }}</td>
+              <td>{{ r.lat }}</td>
+              <td>{{ r.lon }}</td>
+              <td>{{ r.dist_km }}</td>
+              <td>{{ r.tempo_min }}</td>
+              <td>{{ r.acum_km }}</td>
+              <td>{{ r.acum_min }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-12 col-xl-6">
+    <div class="card p-3">
+      <h5><i class="bi bi-map"></i> Mapa Interativo</h5>
+      <div style="height:520px; overflow:hidden;">{{ map_html | safe }}</div>
+    </div>
+  </div>
+  <div class="col-12 col-xl-6">
+    <div class="card p-3">
+      <h5><i class="bi bi-diagram-3"></i> Grafo</h5>
+      <div>{{ graph_html | safe }}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
